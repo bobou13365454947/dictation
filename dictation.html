@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3b6fe0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="单词听写">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>单词听写</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --text: #2c3e50; --muted: #8a94a6;
+    --accent: #3b6fe0; --accent-weak: #eaf0ff; --line: #e6e9f0;
+    --ok: #67c23a; --bad: #f56c6c; --gold: #e6a23c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: var(--panel); border-radius: 18px; box-shadow: 0 6px 30px rgba(30,40,70,.08);
+    width: 520px; max-width: 100%; padding: 34px 38px; text-align: center;
+  }
+  h1 { font-size: 20px; margin-bottom: 6px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  textarea {
+    width: 100%; padding: 12px 14px; font-size: 15px; border: 2px solid var(--line);
+    border-radius: 10px; resize: vertical; margin-bottom: 16px; font-family: inherit;
+    line-height: 1.7; outline: none; min-height: 100px;
+  }
+  textarea:focus { border-color: var(--accent); }
+  .mode-row { display: flex; gap: 10px; }
+  .mode-btn {
+    flex: 1; padding: 12px 8px; font-size: 14px; font-weight: 600; border: 2px solid var(--line);
+    border-radius: 12px; background: #fff; color: var(--text); cursor: pointer; line-height: 1.4;
+  }
+  .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .mode-btn .ic { display: block; font-size: 22px; margin-bottom: 3px; }
+  .clear-row { text-align: right; margin-bottom: 10px; }
+  .clear-btn { padding: 5px 14px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--muted); cursor: pointer; }
+  .clear-btn:hover { border-color: var(--bad); color: var(--bad); }
+  .setting { display: block; margin-top: 14px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; text-align: left; }
+  .setting input { vertical-align: middle; margin-right: 5px; }
+
+  .progress { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 18px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+  .progress b { color: var(--text); font-size: 15px; }
+  .round-tag { background: var(--accent-weak); color: var(--accent); padding: 3px 10px; border-radius: 999px; font-weight: 600; }
+  .nav-btn {
+    padding: 5px 12px; font-size: 12px; border: 1px solid var(--line);
+    border-radius: 8px; background: #fff; color: var(--muted); cursor: pointer;
+  }
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .question { min-height: 92px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+  .q-word { font-size: 40px; font-weight: 700; letter-spacing: 1px; }
+  .q-meaning { font-size: 20px; line-height: 1.6; color: #3a4a5f; }
+  .q-phon { font-size: 15px; color: var(--muted); margin-top: 4px; }
+  .speak-btn {
+    width: 84px; height: 84px; border-radius: 50%; border: none;
+    background: var(--accent); color: #fff; font-size: 34px; cursor: pointer;
+    box-shadow: 0 6px 18px rgba(59,111,224,.35);
+  }
+  .speak-btn:hover { background: #2f5cc0; }
+
+  .input-row { display: flex; gap: 10px; }
+  input {
+    flex: 1; padding: 12px 16px; font-size: 18px; border: 2px solid var(--line);
+    border-radius: 10px; outline: none; letter-spacing: 1px;
+  }
+  input:focus { border-color: var(--accent); }
+  .check-btn {
+    padding: 12px 22px; font-size: 16px; border: none; border-radius: 10px;
+    background: var(--accent); color: #fff; cursor: pointer; font-weight: 600;
+  }
+  .check-btn:hover { background: #2f5cc0; }
+  .forget-btn { background: #909399; }
+  .forget-btn:hover { background: #7a7d82; }
+
+  .feedback { margin-top: 20px; min-height: 50px; }
+  .fb-word { font-size: 22px; font-weight: 700; margin: 6px 0 4px; }
+  .fb-word.ok { color: var(--ok); }
+  .fb-word.bad { color: var(--bad); }
+  .fb-mean { font-size: 14px; color: #5b6b82; line-height: 1.7; }
+  .fb-phon { color: var(--muted); font-size: 13px; }
+  .fb-tip { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+  .btn-row button { padding: 8px 18px; font-size: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; color: #fff; }
+  .sc-ok { background: var(--ok); }
+  .sc-bad { background: var(--bad); }
+  .sc-again { background: var(--accent); }
+
+  .stat { display: flex; justify-content: center; gap: 30px; margin: 20px 0; }
+  .stat .n { font-size: 30px; font-weight: 700; }
+  .stat .l { font-size: 12px; color: var(--muted); }
+  .stat .ok .n { color: var(--ok); }
+  .stat .bad .n { color: var(--bad); }
+  .wrong-list { text-align: left; margin-top: 16px; font-size: 14px; line-height: 1.9; }
+  .wrong-list b { color: var(--bad); }
+  .done-btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+  .done-btn-row button { padding: 12px 24px; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; }
+  .db-again { background: var(--accent); color: #fff; }
+  .db-new { background: #fff; color: var(--muted); border: 1px solid var(--line) !important; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="card" id="app">
+
+  <!-- 开始界面 -->
+  <div id="startView">
+    <h1>📝 单词听写</h1>
+    <div class="sub" id="startSub">手动输入单词，一行一个（或空格/逗号分隔）</div>
+    <textarea id="manualInput" rows="6" placeholder="例如：&#10;abandon&#10;decline&#10;coverage"></textarea>
+    <div class="clear-row"><button class="clear-btn" id="clearBtn">🗑 一键清空</button></div>
+    <div class="mode-row">
+      <button class="mode-btn" data-mode="listen"><span class="ic">🎧</span>听音写词</button>
+      <button class="mode-btn" data-mode="write-meaning"><span class="ic">📖</span>看词写义</button>
+      <button class="mode-btn" data-mode="write-word"><span class="ic">✍️</span>看义写词</button>
+    </div>
+  </div>
+
+  <!-- 听写界面 -->
+  <div id="quizView" class="hidden">
+    <h1 id="modeTitle">🎧 听音写词</h1>
+    <div class="progress">
+      <span class="round-tag" id="roundTag">第 1 轮</span>
+      <span>进度 <b id="progressNum">1/10</b></span>
+      <span>✅ <b id="okNum">0</b></span>
+      <span>❌ <b id="badNum">0</b></span>
+      <button class="nav-btn" id="prevBtn">⏮ 上一个</button>
+      <button class="nav-btn" id="nextBtn">⏭ 跳过</button>
+    </div>
+    <div class="question" id="question"></div>
+    <div class="input-row" id="inputRow">
+      <input id="input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="check-btn" id="checkBtn">确认</button>
+      <button class="check-btn forget-btn hidden" id="forgetBtn">忘了</button>
+    </div>
+    <div class="feedback" id="feedback"></div>
+  </div>
+
+  <!-- 结果界面 -->
+  <div id="doneView" class="hidden">
+    <h1>🎉 全部完成</h1>
+    <div class="stat">
+      <div class="ok"><div class="n" id="finalOk">0</div><div class="l">正确</div></div>
+      <div class="bad"><div class="n" id="finalBad">0</div><div class="l">错误</div></div>
+    </div>
+    <div class="sub" id="finalRounds"></div>
+    <div class="wrong-list" id="wrongList"></div>
+    <div class="done-btn-row">
+      <button class="db-again" id="againAllBtn">🔁 再次拼写全部</button>
+      <button class="db-new" id="newWordsBtn">📝 填入新词</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="dict.js"></script>
+<script src="words.js"></script>
+<script>
+const DICT = window.DICT || {};
+const WORDS = window.WORDS || [];
+
+// ===== 语音 =====
+let voice = null;
+function pickVoice() {
+  const vs = speechSynthesis.getVoices();
+  voice = vs.find(v => v.lang === 'en-US') || vs.find(v => v.lang.startsWith('en')) || vs[0] || null;
+}
+if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function speak(word) {
+  if (!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(word);
+  u.lang = 'en-US'; u.rate = 0.85;
+  if (voice) u.voice = voice;
+  speechSynthesis.speak(u);
+}
+
+// ===== 词典查询 =====
+function lookupWord(w) {
+  const e = DICT[w.toLowerCase()];
+  if (!e) return null;
+  const idx = e.indexOf('|');
+  return { phonetic: idx >= 0 ? e.slice(0, idx) : '', mean: idx >= 0 ? e.slice(idx + 1) : e };
+}
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ===== 状态 =====
+let mode = 'listen';
+let allWords = [];    // 初始全部单词
+let queue = [];       // 当前轮队列
+let idx = 0;
+let ok = 0, bad = 0;
+let wrongs = [];      // 本轮错词
+let againList = [];   // 手动「再拼一次」的词
+let round = 1;
+let timer = null;     // 自动下一个的定时器
+let status = {};      // word -> 'ok' | 'bad'（本轮内状态，用于回看判断）
+let answered = false; // 当前词是否已判分（等待进入下一个）
+let retry = {};        // word -> 还需重练次数（错词=3，每拼对一次减1，到0过关）
+let nextAction = 'next'; // 判分后「下一个/回车」的动作：'next'=进入下一词，'retry'=当场重练当前词
+let selfEval = false;   // 看词写义自评界面：回车默认判对
+
+const MODE_TITLE = { listen: '🎧 听音写词', 'write-meaning': '📖 看词写义', 'write-word': '✍️ 看义写词' };
+const startView = document.getElementById('startView');
+const quizView  = document.getElementById('quizView');
+const doneView  = document.getElementById('doneView');
+const inputEl   = document.getElementById('input');
+
+function parseWords(text) {
+  return text.split(/[\s,，、;；]+/).map(w => w.trim().toLowerCase()).filter(w => /^[a-z][a-z'-]{1,}$/.test(w));
+}
+try { const saved = localStorage.getItem('kaoyan_manual_words'); if (saved) document.getElementById('manualInput').value = saved; } catch(e) {}
+document.getElementById('startSub').textContent =
+  WORDS.length ? `照片识别了 ${WORDS.length} 个词；也可在下方手动输入` : '手动输入单词，一行一个（或空格/逗号分隔）';
+
+document.getElementById('clearBtn').onclick = () => {
+  document.getElementById('manualInput').value = '';
+  try { localStorage.removeItem('kaoyan_manual_words'); } catch(e) {}
+};
+
+document.querySelectorAll('.mode-btn').forEach(b => { b.onclick = () => start(b.dataset.mode); });
+
+function start(m) {
+  mode = m;
+  const manual = parseWords(document.getElementById('manualInput').value);
+  const words = manual.length ? manual : WORDS;
+  if (!words.length) { alert('请先输入单词'); return; }
+  if (manual.length) { try { localStorage.setItem('kaoyan_manual_words', document.getElementById('manualInput').value); } catch(e) {} }
+  allWords = words.slice();
+  queue = words.slice();
+  idx = 0; ok = 0; bad = 0; wrongs = []; againList = []; round = 1; status = {}; retry = {};
+  document.getElementById('modeTitle').textContent = MODE_TITLE[mode];
+  startView.classList.add('hidden');
+  doneView.classList.add('hidden');
+  quizView.classList.remove('hidden');
+  next();
+}
+
+function next() {
+  clearTimeout(timer);
+  answered = false;
+  autoLock = false;
+  selfEval = false;
+  inputEl.value = '';
+  document.getElementById('feedback').innerHTML = '';
+  if (idx >= queue.length) { roundEnd(); return; }
+  updateProgress();
+  const word = queue[idx];
+  if (status[word] === 'ok') {
+    renderDone(word);
+  } else {
+    document.getElementById('inputRow').classList.remove('hidden');
+    renderQuestion();
+    if (mode === 'listen' || mode === 'write-meaning') speak(word);
+    inputEl.focus();
+  }
+}
+
+// 统一「进入下一个词」：判分后由它推进
+function goNext() {
+  clearTimeout(timer);
+  answered = false;
+  autoLock = false;
+  idx++;
+  next();
+}
+
+// 已拼对的词回看时：不强制重拼，提供「重新拼写」选项
+function renderDone(word) {
+  const lk = lookupWord(word);
+  const q = document.getElementById('question');
+  q.innerHTML = '<div class="fb-word ok">✓ 已拼对 ' + word + '</div>' +
+    (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '');
+  document.getElementById('inputRow').classList.add('hidden');
+  document.getElementById('feedback').innerHTML =
+    '<div class="btn-row"><button class="sc-again" id="redoBtn">🔁 重新拼写</button></div>';
+  document.getElementById('redoBtn').onclick = () => {
+    delete status[word];
+    document.getElementById('inputRow').classList.remove('hidden');
+    renderQuestion();
+    if (mode === 'listen' || mode === 'write-meaning') speak(word);
+    inputEl.focus();
+  };
+}
+
+function renderQuestion() {
+  const word = queue[idx];
+  const lk = lookupWord(word);
+  const q = document.getElementById('question');
+  document.getElementById('forgetBtn').classList.toggle('hidden', mode !== 'write-meaning' && mode !== 'write-word');
+  if (mode === 'listen') {
+    q.innerHTML = '<button class="speak-btn" id="speakBtn">🔊</button>';
+    document.getElementById('speakBtn').onclick = () => speak(word);
+    inputEl.placeholder = '输入你听到的单词';
+  } else if (mode === 'write-meaning') {
+    q.innerHTML = '<div><div class="q-word">' + word + '</div>' +
+      (lk ? '<div class="q-phon">/' + lk.phonetic + '/</div>' : '') + '</div>';
+    inputEl.placeholder = '输入中文意思';
+  } else {
+    q.innerHTML = '<div><div class="q-meaning">' + (lk ? lk.mean : '（词典无释义）') + '</div></div>';
+    inputEl.placeholder = '输入英文单词';
+  }
+}
+
+function updateProgress() {
+  document.getElementById('roundTag').textContent = '第 ' + round + ' 轮';
+  document.getElementById('progressNum').textContent = (idx + 1) + '/' + queue.length;
+  document.getElementById('okNum').textContent = ok;
+  document.getElementById('badNum').textContent = bad;
+}
+
+// ===== 判分 =====
+function checkAnswer() {
+  if (idx >= queue.length) return;
+  const word = queue[idx];
+  const input = inputEl.value.trim();
+  if (!input) return;
+  const fb = document.getElementById('feedback');
+  const lk = lookupWord(word);
+
+  if (mode === 'listen' || mode === 'write-word') {
+    if (input.toLowerCase() === word.toLowerCase()) { markCorrect(word, lk); }
+    else { markWrong(word, input, lk); }
+  } else {
+    // 看词写义：先显示标准释义让用户自评，再走与其它模式相同的对/错流程
+    selfEval = true;
+    fb.innerHTML = '<div class="fb-word">你写的：' + escapeHtml(input) + '</div>' +
+      '<div class="fb-mean">标准释义：' + (lk ? lk.mean : '（词典无释义）') + '</div>' +
+      '<div class="btn-row"><button class="sc-ok" id="scOk">✓ 我对了</button><button class="sc-bad" id="scBad">✗ 我错了</button></div>';
+    document.getElementById('scOk').onclick = () => { markCorrect(word, lk); };
+    document.getElementById('scBad').onclick = () => { markWrong(word, input, lk); };
+  }
+}
+
+function markCorrect(word, lk) {
+  selfEval = false;
+  if (!(retry[word] > 0)) ok++;   // 仅首次拼对计入正确数，重练的3遍不计入
+  speak(word);   // 拼对后读一遍，加强记忆
+  answered = true;
+  if (retry[word] > 0) retry[word]--;
+  const remaining = retry[word] || 0;
+  const fb = document.getElementById('feedback');
+  if (remaining > 0) {
+    // 重练中：还需再拼 remaining 次，当场重新出题当前词
+    nextAction = 'retry';
+    fb.innerHTML = '<div class="fb-word ok">✓ 正确！还需再拼 ' + remaining + ' 次</div>' +
+      (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '') +
+      '<div class="btn-row"><button class="sc-ok" id="confirmNext">✓ 继续重练</button></div>';
+    document.getElementById('confirmNext').onclick = () => { next(); };
+    updateProgress();
+    timer = setTimeout(next, 1500);
+  } else {
+    // 过关（首次拼对 或 重练完成）
+    status[word] = 'ok';
+    nextAction = 'next';
+    fb.innerHTML = '<div class="fb-word ok">✓ 正确 ' + word + '（过关）</div>' +
+      (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '') +
+      '<div class="btn-row">' +
+      '<button class="sc-ok" id="confirmNext">✓ 确定，下一个</button>' +
+      '<button class="sc-again" id="againBtn">🔁 再拼一次这个词</button>' +
+      '</div>';
+    document.getElementById('confirmNext').onclick = () => { goNext(); };
+    document.getElementById('againBtn').onclick = () => { delete status[word]; next(); };
+    updateProgress();
+    timer = setTimeout(goNext, 5000);
+  }
+}
+
+function markWrong(word, input, lk) {
+  selfEval = false;
+  speak(word);   // 拼错也读一遍，加强记忆
+  bad++;
+  answered = true;
+  if (retry[word] > 0) {
+    // 重练中又拼错：也减一次（固定 3 遍，不重置，避免死循环）
+    retry[word]--;
+  } else {
+    // 首次拼错：进入重练，固定 3 遍
+    retry[word] = 3;
+    wrongs.push(word);
+    status[word] = 'bad';
+  }
+  const remaining = retry[word] || 0;
+  const fb = document.getElementById('feedback');
+  if (remaining > 0) {
+    nextAction = 'retry';
+    fb.innerHTML = '<div class="fb-word bad">✗ 正确是 ' + word + '</div>' +
+      (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '') +
+      '<div class="fb-tip">你写的是「' + escapeHtml(input) + '」，还需重练 ' + remaining + ' 次</div>' +
+      '<div class="btn-row">' +
+      '<button class="sc-ok" id="confirmNext">✓ 重新拼写</button>' +
+      '<button class="sc-ok" id="ambiguityOk" style="background:var(--gold)">✓ 其实我对了</button>' +
+      '</div>';
+    document.getElementById('confirmNext').onclick = () => { next(); };
+    document.getElementById('ambiguityOk').onclick = () => {
+      bad--; ok++;
+      const wi = wrongs.indexOf(word); if (wi >= 0) wrongs.splice(wi, 1);
+      retry[word] = 0; nextAction = 'next';
+      goNext();
+    };
+  } else {
+    // 固定 3 遍拼完（还错），进入下一个
+    nextAction = 'next';
+    fb.innerHTML = '<div class="fb-word bad">✗ 正确是 ' + word + '（重练结束）</div>' +
+      (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '') +
+      '<div class="btn-row"><button class="sc-ok" id="confirmNext">✓ 确定，下一个</button></div>';
+    document.getElementById('confirmNext').onclick = () => { goNext(); };
+  }
+  updateProgress();
+}
+
+// 已移除「输入即自动判对」，判分仅在点「确认」或按回车时发生
+let autoLock = false;
+
+// 「忘了」：显示释义并记为错误（仅看词写义模式）
+function forget(word) {
+  speak(word);   // 忘了也读一遍
+  bad++;
+  answered = true;
+  if (retry[word] > 0) {
+    retry[word]--;
+  } else {
+    retry[word] = 3;
+    wrongs.push(word);
+    status[word] = 'bad';
+  }
+  const remaining = retry[word] || 0;
+  const lk = lookupWord(word);
+  const fb = document.getElementById('feedback');
+  if (remaining > 0) {
+    nextAction = 'retry';
+    fb.innerHTML = '<div class="fb-word bad">💡 你忘了这个词</div>' +
+      '<div class="fb-mean"><b>' + word + '</b>：' + (lk ? lk.mean : '（词典无释义）') + '</div>' +
+      '<div class="fb-tip">还需重练 ' + remaining + ' 次</div>' +
+      '<div class="btn-row"><button class="sc-ok" id="confirmNext">✓ 重新拼写</button></div>';
+    document.getElementById('confirmNext').onclick = () => { next(); };
+  } else {
+    nextAction = 'next';
+    fb.innerHTML = '<div class="fb-word bad">💡 你忘了这个词（重练结束）</div>' +
+      '<div class="fb-mean"><b>' + word + '</b>：' + (lk ? lk.mean : '（词典无释义）') + '</div>' +
+      '<div class="btn-row"><button class="sc-ok" id="confirmNext">✓ 确定，下一个</button></div>';
+    document.getElementById('confirmNext').onclick = () => { goNext(); };
+  }
+  updateProgress();
+}
+
+document.getElementById('forgetBtn').onclick = () => {
+  if (idx < queue.length) forget(queue[idx]);
+};
+
+document.getElementById('checkBtn').onclick = checkAnswer;
+inputEl.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (answered) {
+    if (nextAction === 'retry') { next(); } else { goNext(); }
+  } else if (selfEval) {
+    // 看词写义自评界面：回车默认判对，错了用鼠标点「我错了」
+    markCorrect(queue[idx], lookupWord(queue[idx]));
+  } else { checkAnswer(); }
+});
+document.getElementById('prevBtn').onclick = () => { clearTimeout(timer); answered = false; if (idx > 0) { idx--; next(); } };
+document.getElementById('nextBtn').onclick = () => {
+  if (answered && nextAction === 'retry') { next(); } else { goNext(); }
+};
+
+// ===== 轮次结束：错词整合再拼 =====
+function roundEnd() {
+  // 一轮结束：错词整合进第二轮巩固（只巩固一轮，不再循环）
+  const needRetry = [];
+  const seen = new Set();
+  for (const w of [...wrongs, ...againList]) {
+    if (!seen.has(w)) { seen.add(w); needRetry.push(w); }
+  }
+  if (needRetry.length && round === 1) {
+    queue = needRetry;
+    wrongs = []; againList = []; status = {}; retry = {};
+    idx = 0; round++;
+    document.getElementById('feedback').innerHTML = '<div class="fb-word">本轮结束，错词 ' + queue.length + ' 个，进入第 2 轮巩固</div>';
+    updateProgress();
+    timer = setTimeout(next, 2000);
+  } else {
+    // 第二轮（巩固轮）结束，或没有错词：直接结束
+    finish();
+  }
+}
+
+// ===== 全部完成 =====
+function finish() {
+  quizView.classList.add('hidden');
+  doneView.classList.remove('hidden');
+  document.getElementById('finalOk').textContent = ok;
+  document.getElementById('finalBad').textContent = bad;
+  document.getElementById('finalRounds').textContent = '共完成 ' + round + ' 轮';
+  document.getElementById('wrongList').innerHTML =
+    bad ? '<div class="wrong-list"><b>累计错过的词：</b>' + [...new Set(wrongs)].join('、') + '</div>' : '<div class="wrong-list">全部正确！👍</div>';
+}
+
+document.getElementById('againAllBtn').onclick = () => {
+  queue = allWords.slice(); idx = 0; ok = 0; bad = 0; wrongs = []; againList = []; round = 1; status = {}; retry = {};
+  document.getElementById('modeTitle').textContent = MODE_TITLE[mode];
+  doneView.classList.add('hidden');
+  quizView.classList.remove('hidden');
+  next();
+};
+document.getElementById('newWordsBtn').onclick = () => {
+  doneView.classList.add('hidden');
+  quizView.classList.add('hidden');
+  startView.classList.remove('hidden');
+};
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+</body>
+</html>
