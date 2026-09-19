@@ -1,7 +1,7 @@
 const CACHE = 'dictation-v1';
 const ASSETS = [
   './',
-  './dictation.html',
+  './index.html',
   './dict.js',
   './words.js',
   './manifest.json',
