@@ -105,6 +105,14 @@
   .done-btn-row button { padding: 12px 24px; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; }
   .db-again { background: var(--accent); color: #fff; }
   .db-new { background: #fff; color: var(--muted); border: 1px solid var(--line) !important; }
+  .search-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .search-row input { flex: 1; font-size: 14px; padding: 8px 12px; }
+  .search-result { text-align: left; font-size: 13px; line-height: 1.7; max-height: 180px; overflow-y: auto; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+  .search-result .sr-word { font-weight: 700; color: var(--accent); }
+  .search-result .sr-phon { color: var(--muted); font-size: 12px; }
+  .search-result .sr-item { padding: 5px 0; border-bottom: 1px dashed var(--line); }
+  .search-result .sr-item:last-child { border-bottom: none; }
+  .search-result .sr-empty { color: var(--muted); }
   .hidden { display: none; }
 </style>
 </head>
@@ -134,6 +142,13 @@
       <span>❌ <b id="badNum">0</b></span>
       <button class="nav-btn" id="prevBtn">⏮ 上一个</button>
       <button class="nav-btn" id="nextBtn">⏭ 跳过</button>
+    </div>
+    <div id="searchBox" class="hidden">
+      <div class="search-row">
+        <input id="searchInput" type="text" placeholder="搜单词或中文，找同义词/释义" autocomplete="off">
+        <button class="nav-btn" id="searchBtn">搜索</button>
+      </div>
+      <div id="searchResult" class="search-result"></div>
     </div>
     <div class="question" id="question"></div>
     <div class="input-row" id="inputRow">
@@ -295,7 +310,10 @@ function renderQuestion() {
   const word = queue[idx];
   const lk = lookupWord(word);
   const q = document.getElementById('question');
-  document.getElementById('forgetBtn').classList.toggle('hidden', mode !== 'write-meaning' && mode !== 'write-word');
+  const showSearch = mode === 'write-meaning' || mode === 'write-word';
+  document.getElementById('forgetBtn').classList.toggle('hidden', !showSearch);
+  document.getElementById('searchBox').classList.toggle('hidden', !showSearch);
+  if (!showSearch) document.getElementById('searchResult').innerHTML = '';
   if (mode === 'listen') {
     q.innerHTML = '<button class="speak-btn" id="speakBtn">🔊</button>';
     document.getElementById('speakBtn').onclick = () => speak(word);
@@ -455,6 +473,48 @@ function forget(word) {
 document.getElementById('forgetBtn').onclick = () => {
   if (idx < queue.length) forget(queue[idx]);
 };
+
+// ===== 词典搜索（看词写义 / 看义写词：搜同义词、查释义） =====
+function renderSearchResults(list) {
+  const box = document.getElementById('searchResult');
+  if (!list.length) { box.innerHTML = '<div class="sr-empty">没有匹配的单词</div>'; return; }
+  box.innerHTML = list.map(r =>
+    '<div class="sr-item"><span class="sr-word">' + escapeHtml(r.word) + '</span>' +
+    (r.phonetic ? ' <span class="sr-phon">/' + escapeHtml(r.phonetic) + '/</span>' : '') +
+    '<div>' + escapeHtml(r.mean) + '</div></div>'
+  ).join('');
+}
+function searchDict() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  if (!q) return;
+  const out = [];
+  if (/^[a-z]/.test(q)) {
+    const exact = [], prefix = [];
+    for (const w in DICT) {
+      if (w === q) exact.push(w);
+      else if (w.startsWith(q) && prefix.length < 20) prefix.push(w);
+    }
+    for (const w of exact.concat(prefix).slice(0, 20)) {
+      const lk = lookupWord(w);
+      out.push({ word: w, phonetic: lk.phonetic, mean: lk.mean });
+    }
+  } else {
+    let n = 0;
+    for (const w in DICT) {
+      const lk = lookupWord(w);
+      if (lk && lk.mean.indexOf(q) >= 0) {
+        out.push({ word: w, phonetic: lk.phonetic, mean: lk.mean });
+        if (++n >= 30) break;
+      }
+    }
+  }
+  renderSearchResults(out);
+}
+document.getElementById('searchBtn').onclick = searchDict;
+document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) searchDict(); });
+document.getElementById('searchInput').addEventListener('input', () => {
+  if (!document.getElementById('searchInput').value.trim()) document.getElementById('searchResult').innerHTML = '';
+});
 
 document.getElementById('checkBtn').onclick = checkAnswer;
 inputEl.addEventListener('keydown', e => {
