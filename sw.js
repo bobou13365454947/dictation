@@ -1,4 +1,4 @@
-const CACHE = 'dictation-v1';
+const CACHE = 'dictation-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -24,9 +24,21 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// 先返回缓存（快、离线可用），同时后台更新缓存，下次打开就是最新版
+// HTML 导航走网络优先（保证每次更新立即可见），静态资源走缓存优先 + 后台更新
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then((res) => {
+        if (res && res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put('./index.html', copy));
+        }
+        return res;
+      }).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then((cached) => {
       const fetched = fetch(e.request).then((res) => {
