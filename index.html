@@ -113,21 +113,19 @@
   .search-result .sr-item { padding: 5px 0; border-bottom: 1px dashed var(--line); }
   .search-result .sr-item:last-child { border-bottom: none; }
   .search-result .sr-empty { color: var(--muted); }
-  .home-fab {
-    position: fixed; top: 14px; left: 14px;
-    width: 44px; height: 44px; border-radius: 50%;
-    border: none; background: #fff; color: var(--muted);
-    font-size: 20px; box-shadow: 0 3px 12px rgba(30,40,70,.18);
-    cursor: pointer; z-index: 20;
+  .top-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .top-bar h1 { flex: 1; margin: 0; }
+  .home-top {
+    padding: 6px 12px; font-size: 14px; font-weight: 600;
+    border: 1px solid var(--accent); border-radius: 8px;
+    background: var(--accent-weak); color: var(--accent); cursor: pointer; white-space: nowrap;
   }
-  .home-fab:hover { color: var(--accent); }
+  .home-top:hover { background: var(--accent); color: #fff; }
   .hidden { display: none; }
 </style>
 </head>
 <body>
 <div class="card" id="app">
-
-  <button id="homeFab" class="home-fab hidden" title="返回首页">🏠</button>
 
   <!-- 开始界面 -->
   <div id="startView">
@@ -144,7 +142,10 @@
 
   <!-- 听写界面 -->
   <div id="quizView" class="hidden">
-    <h1 id="modeTitle">🎧 听音写词</h1>
+    <div class="top-bar">
+      <button id="homeBtn" class="home-top">← 首页</button>
+      <h1 id="modeTitle">🎧 听音写词</h1>
+    </div>
     <div class="progress">
       <span class="round-tag" id="roundTag">第 1 轮</span>
       <span>进度 <b id="progressNum">1/10</b></span>
@@ -266,7 +267,6 @@ function start(m) {
   startView.classList.add('hidden');
   doneView.classList.add('hidden');
   quizView.classList.remove('hidden');
-  document.getElementById('homeFab').classList.remove('hidden');
   next();
 }
 
@@ -547,9 +547,8 @@ function goHome() {
   quizView.classList.add('hidden');
   doneView.classList.add('hidden');
   startView.classList.remove('hidden');
-  document.getElementById('homeFab').classList.add('hidden');
 }
-document.getElementById('homeFab').onclick = goHome;
+document.getElementById('homeBtn').onclick = goHome;
 
 // ===== 轮次结束：错词整合再拼 =====
 function roundEnd() {
