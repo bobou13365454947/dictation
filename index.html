@@ -121,6 +121,12 @@
     background: var(--accent-weak); color: var(--accent); cursor: pointer; white-space: nowrap;
   }
   .home-top:hover { background: var(--accent); color: #fff; }
+  .add-mean-btn {
+    padding: 4px 10px; font-size: 12px; border: 1px solid var(--accent);
+    border-radius: 8px; background: var(--accent-weak); color: var(--accent); cursor: pointer;
+    white-space: nowrap;
+  }
+  .add-mean-btn:hover { background: var(--accent); color: #fff; }
   .hidden { display: none; }
 </style>
 </head>
@@ -193,6 +199,14 @@
 const DICT = window.DICT || {};
 const WORDS = window.WORDS || [];
 
+// ===== 自定义词典（用户手动添加的释义，localStorage 持久化） =====
+const CUSTOM_DICT_KEY = 'kaoyan_custom_dict';
+let customDict = {};
+try { customDict = JSON.parse(localStorage.getItem(CUSTOM_DICT_KEY) || '{}'); } catch(e) { customDict = {}; }
+function saveCustomDict() {
+  try { localStorage.setItem(CUSTOM_DICT_KEY, JSON.stringify(customDict)); } catch(e) {}
+}
+
 // ===== 语音 =====
 let voice = null;
 function pickVoice() {
@@ -211,12 +225,47 @@ function speak(word) {
 
 // ===== 词典查询 =====
 function lookupWord(w) {
-  const e = DICT[w.toLowerCase()];
+  const key = w.toLowerCase();
+  let e = DICT[key];
+  if (!e) e = customDict[key];
   if (!e) return null;
   const idx = e.indexOf('|');
   return { phonetic: idx >= 0 ? e.slice(0, idx) : '', mean: idx >= 0 ? e.slice(idx + 1) : e };
 }
 function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ===== 手动添加释义 =====
+// 无释义时生成「➕ 添加释义」按钮；有释义则返回空串
+function addMeaningBtn(word) {
+  return lookupWord(word) ? '' :
+    ' <button class="add-mean-btn" data-word="' + escapeHtml(word) + '">➕ 添加释义</button>';
+}
+function openAddMeaning(word) {
+  clearTimeout(timer);
+  const fb = document.getElementById('feedback');
+  fb.innerHTML = '<div class="fb-word">为 <b>' + escapeHtml(word) + '</b> 填写中文意思</div>' +
+    '<div class="input-row" style="margin-top:12px">' +
+    '<input id="addMeanInput" type="text" placeholder="输入中文意思" autocomplete="off">' +
+    '<button class="check-btn" id="saveMeanBtn">💾 保存</button>' +
+    '</div>' +
+    '<div class="btn-row"><button class="sc-bad" id="cancelMeanBtn">取消</button></div>';
+  const inp = document.getElementById('addMeanInput');
+  inp.focus();
+  document.getElementById('saveMeanBtn').onclick = () => saveMeaning(word, inp.value.trim());
+  document.getElementById('cancelMeanBtn').onclick = () => { clearTimeout(timer); next(); };
+  inp.addEventListener('keydown', ev => { if (ev.key === 'Enter' && !ev.isComposing) saveMeaning(word, inp.value.trim()); });
+}
+function saveMeaning(word, mean) {
+  if (!mean) return;
+  customDict[word.toLowerCase()] = '|' + mean;
+  saveCustomDict();
+  clearTimeout(timer);
+  const fb = document.getElementById('feedback');
+  fb.innerHTML = '<div class="fb-word ok">✓ 已添加释义</div>' +
+    '<div class="fb-mean"><b>' + escapeHtml(word) + '</b>：' + escapeHtml(mean) + '</div>' +
+    '<div class="btn-row"><button class="sc-ok" id="afterSaveNext">✓ 继续</button></div>';
+  document.getElementById('afterSaveNext').onclick = () => { next(); };
+}
 
 // ===== 状态 =====
 let mode = 'listen';
@@ -304,7 +353,7 @@ function renderDone(word) {
   const lk = lookupWord(word);
   const q = document.getElementById('question');
   q.innerHTML = '<div class="fb-word ok">✓ 已拼对 ' + word + '</div>' +
-    (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '');
+    (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '<div>' + addMeaningBtn(word) + '</div>');
   document.getElementById('inputRow').classList.add('hidden');
   document.getElementById('feedback').innerHTML =
     '<div class="btn-row"><button class="sc-again" id="redoBtn">🔁 重新拼写</button></div>';
@@ -334,7 +383,7 @@ function renderQuestion() {
       (lk ? '<div class="q-phon">/' + lk.phonetic + '/</div>' : '') + '</div>';
     inputEl.placeholder = '输入中文意思';
   } else {
-    q.innerHTML = '<div><div class="q-meaning">' + (lk ? lk.mean : '（词典无释义）') + '</div></div>';
+    q.innerHTML = '<div><div class="q-meaning">' + (lk ? lk.mean : '（词典无释义）' + addMeaningBtn(word)) + '</div></div>';
     inputEl.placeholder = '输入英文单词';
   }
 }
@@ -362,7 +411,7 @@ function checkAnswer() {
     // 看词写义：先显示标准释义让用户自评，再走与其它模式相同的对/错流程
     selfEval = true;
     fb.innerHTML = '<div class="fb-word">你写的：' + escapeHtml(input) + '</div>' +
-      '<div class="fb-mean">标准释义：' + (lk ? lk.mean : '（词典无释义）') + '</div>' +
+      '<div class="fb-mean">标准释义：' + (lk ? lk.mean : '（词典无释义）' + addMeaningBtn(word)) + '</div>' +
       '<div class="btn-row"><button class="sc-ok" id="scOk">✓ 我对了</button><button class="sc-bad" id="scBad">✗ 我错了</button></div>';
     document.getElementById('scOk').onclick = () => { markCorrect(word, lk); };
     document.getElementById('scBad').onclick = () => { markWrong(word, input, lk); };
@@ -381,7 +430,7 @@ function markCorrect(word, lk) {
     // 重练中：还需再拼 remaining 次，当场重新出题当前词
     nextAction = 'retry';
     fb.innerHTML = '<div class="fb-word ok">✓ 正确！还需再拼 ' + remaining + ' 次</div>' +
-      (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '') +
+      (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '<div>' + addMeaningBtn(word) + '</div>') +
       '<div class="btn-row"><button class="sc-ok" id="confirmNext">✓ 继续重练</button></div>';
     document.getElementById('confirmNext').onclick = () => { next(); };
     updateProgress();
@@ -391,7 +440,7 @@ function markCorrect(word, lk) {
     status[word] = 'ok';
     nextAction = 'next';
     fb.innerHTML = '<div class="fb-word ok">✓ 正确 ' + word + '（过关）</div>' +
-      (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '') +
+      (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '<div>' + addMeaningBtn(word) + '</div>') +
       '<div class="btn-row">' +
       '<button class="sc-ok" id="confirmNext">✓ 确定，下一个</button>' +
       '<button class="sc-again" id="againBtn">🔁 再拼一次这个词</button>' +
@@ -422,7 +471,7 @@ function markWrong(word, input, lk) {
   if (remaining > 0) {
     nextAction = 'retry';
     fb.innerHTML = '<div class="fb-word bad">✗ 正确是 ' + word + '</div>' +
-      (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '') +
+      (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '<div>' + addMeaningBtn(word) + '</div>') +
       '<div class="fb-tip">你写的是「' + escapeHtml(input) + '」，还需重练 ' + remaining + ' 次</div>' +
       '<div class="btn-row">' +
       '<button class="sc-ok" id="confirmNext">✓ 重新拼写</button>' +
@@ -439,7 +488,7 @@ function markWrong(word, input, lk) {
     // 固定 3 遍拼完（还错），进入下一个
     nextAction = 'next';
     fb.innerHTML = '<div class="fb-word bad">✗ 正确是 ' + word + '（重练结束）</div>' +
-      (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '') +
+      (lk ? '<div class="fb-phon">/' + lk.phonetic + '/ ' + lk.mean + '</div>' : '<div>' + addMeaningBtn(word) + '</div>') +
       '<div class="btn-row"><button class="sc-ok" id="confirmNext">✓ 确定，下一个</button></div>';
     document.getElementById('confirmNext').onclick = () => { goNext(); };
   }
@@ -467,14 +516,14 @@ function forget(word) {
   if (remaining > 0) {
     nextAction = 'retry';
     fb.innerHTML = '<div class="fb-word bad">💡 你忘了这个词</div>' +
-      '<div class="fb-mean"><b>' + word + '</b>：' + (lk ? lk.mean : '（词典无释义）') + '</div>' +
+      '<div class="fb-mean"><b>' + word + '</b>：' + (lk ? lk.mean : '（词典无释义）' + addMeaningBtn(word)) + '</div>' +
       '<div class="fb-tip">还需重练 ' + remaining + ' 次</div>' +
       '<div class="btn-row"><button class="sc-ok" id="confirmNext">✓ 重新拼写</button></div>';
     document.getElementById('confirmNext').onclick = () => { next(); };
   } else {
     nextAction = 'next';
     fb.innerHTML = '<div class="fb-word bad">💡 你忘了这个词（重练结束）</div>' +
-      '<div class="fb-mean"><b>' + word + '</b>：' + (lk ? lk.mean : '（词典无释义）') + '</div>' +
+      '<div class="fb-mean"><b>' + word + '</b>：' + (lk ? lk.mean : '（词典无释义）' + addMeaningBtn(word)) + '</div>' +
       '<div class="btn-row"><button class="sc-ok" id="confirmNext">✓ 确定，下一个</button></div>';
     document.getElementById('confirmNext').onclick = () => { goNext(); };
   }
@@ -484,6 +533,12 @@ function forget(word) {
 document.getElementById('forgetBtn').onclick = () => {
   if (idx < queue.length) forget(queue[idx]);
 };
+
+// 添加释义按钮（事件委托）
+quizView.addEventListener('click', e => {
+  const btn = e.target.closest('.add-mean-btn');
+  if (btn) openAddMeaning(btn.dataset.word);
+});
 
 // ===== 词典搜索（看词写义 / 看义写词：搜同义词、查释义） =====
 function renderSearchResults(list) {
@@ -527,15 +582,19 @@ document.getElementById('searchInput').addEventListener('input', () => {
   if (!document.getElementById('searchInput').value.trim()) document.getElementById('searchResult').innerHTML = '';
 });
 
-document.getElementById('checkBtn').onclick = checkAnswer;
-inputEl.addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
+function onCheck() {
+  if (idx >= queue.length) return;
   if (answered) {
     if (nextAction === 'retry') { next(); } else { goNext(); }
   } else if (selfEval) {
     // 看词写义自评界面：回车默认判对，错了用鼠标点「我错了」
     markCorrect(queue[idx], lookupWord(queue[idx]));
   } else { checkAnswer(); }
+}
+document.getElementById('checkBtn').onclick = onCheck;
+inputEl.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  onCheck();
 });
 document.getElementById('prevBtn').onclick = () => { clearTimeout(timer); answered = false; if (idx > 0) { idx--; next(); } };
 document.getElementById('nextBtn').onclick = () => {
