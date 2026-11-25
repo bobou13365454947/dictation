@@ -144,6 +144,7 @@
       <button class="mode-btn" data-mode="write-meaning"><span class="ic">📖</span>看词写义</button>
       <button class="mode-btn" data-mode="write-word"><span class="ic">✍️</span>看义写词</button>
     </div>
+    <button id="myDictBtn" style="width:100%; margin-top:14px; padding:10px; font-size:13px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--muted); cursor:pointer;">📤 我的释义</button>
   </div>
 
   <!-- 听写界面 -->
@@ -188,6 +189,21 @@
     <div class="done-btn-row">
       <button class="db-again" id="againAllBtn">🔁 再次拼写全部</button>
       <button class="db-new" id="newWordsBtn">📝 填入新词</button>
+    </div>
+  </div>
+
+  <!-- 我的释义（导出/管理自定义词典） -->
+  <div id="customView" class="hidden">
+    <div class="top-bar">
+      <button id="customBackBtn" class="home-top">← 返回</button>
+      <h1>📤 我的释义</h1>
+    </div>
+    <div class="sub" id="customSub"></div>
+    <textarea id="customText" rows="8" readonly placeholder="（还没有手动添加过释义）"></textarea>
+    <div class="btn-row">
+      <button class="sc-ok" id="copyCustomBtn">📋 复制全部</button>
+      <button class="sc-again" id="downloadCustomBtn">⬇️ 下载 txt</button>
+      <button class="sc-bad" id="clearCustomBtn">🗑 清空</button>
     </div>
   </div>
 
@@ -649,6 +665,76 @@ document.getElementById('againAllBtn').onclick = () => {
   next();
 };
 document.getElementById('newWordsBtn').onclick = goHome;
+
+// ===== 我的释义（导出/管理自定义词典） =====
+const customView = document.getElementById('customView');
+function customDictCount() { return Object.keys(customDict).length; }
+function refreshMyDictBtn() {
+  const n = customDictCount();
+  document.getElementById('myDictBtn').textContent = n ? ('📤 导出我的释义（' + n + ' 个）') : '📤 我的释义';
+}
+function customDictText() {
+  return Object.keys(customDict).sort().map(w => {
+    const lk = lookupWord(w);
+    return w + '|' + (lk ? lk.mean : '');
+  }).join('\n');
+}
+document.getElementById('myDictBtn').onclick = () => {
+  document.getElementById('customText').value = customDictText();
+  document.getElementById('customSub').textContent = '已添加 ' + customDictCount() + ' 个释义（复制下方内容，发给我即可合并进离线词典）';
+  startView.classList.add('hidden');
+  doneView.classList.add('hidden');
+  quizView.classList.add('hidden');
+  customView.classList.remove('hidden');
+};
+document.getElementById('customBackBtn').onclick = () => {
+  customView.classList.add('hidden');
+  startView.classList.remove('hidden');
+  refreshMyDictBtn();
+};
+document.getElementById('copyCustomBtn').onclick = () => {
+  const btn = document.getElementById('copyCustomBtn');
+  const text = document.getElementById('customText').value;
+  if (!text) return;
+  const done = () => { btn.textContent = '✅ 已复制'; setTimeout(() => btn.textContent = '📋 复制全部', 1500); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => { document.getElementById('customText').select(); btn.textContent = '⚠️ 请长按手动复制'; });
+  } else {
+    document.getElementById('customText').select();
+    try { document.execCommand('copy'); done(); }
+    catch(e) { btn.textContent = '⚠️ 请长按手动复制'; }
+  }
+};
+document.getElementById('downloadCustomBtn').onclick = () => {
+  const text = document.getElementById('customText').value;
+  if (!text) return;
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'my-words.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+};
+// 清空：两步确认（避免 iOS 上 confirm 不可用）
+let clearArm = false;
+document.getElementById('clearCustomBtn').onclick = () => {
+  if (!clearArm) {
+    clearArm = true;
+    document.getElementById('clearCustomBtn').textContent = '⚠️ 再点一次确认清空';
+    setTimeout(() => { clearArm = false; document.getElementById('clearCustomBtn').textContent = '🗑 清空'; }, 3000);
+    return;
+  }
+  clearArm = false;
+  customDict = {};
+  saveCustomDict();
+  document.getElementById('customText').value = '';
+  document.getElementById('customSub').textContent = '已添加 0 个释义';
+  document.getElementById('clearCustomBtn').textContent = '🗑 清空';
+  refreshMyDictBtn();
+};
+refreshMyDictBtn();
 </script>
 <script>
 if ('serviceWorker' in navigator) {
